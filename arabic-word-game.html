@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>لعبة أقسام الكلمة</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=Tajawal:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  /* ───────── reset & base ───────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%; overflow: hidden;
+    font-family: 'Cairo', 'Tajawal', sans-serif;
+    background: linear-gradient(145deg, #fdf6e3 0%, #fef9ef 100%);
+    user-select: none; -webkit-user-select: none;
+    touch-action: manipulation;
+  }
+
+  /* ───────── main layout ───────── */
+  .game-wrap {
+    display: flex; flex-direction: column;
+    height: 100dvh; width: 100%;
+    max-width: 820px; margin: 0 auto;
+    padding: 0.4rem 0.6rem 0.6rem;
+    position: relative; overflow: hidden;
+  }
+
+  /* ───────── header ───────── */
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0.3rem 0.4rem; flex-shrink: 0;
+  }
+  .title { font-size: clamp(1rem, 4vw, 1.6rem); font-weight: 800; color: #5b3a8c; }
+  .score-box {
+    background: #5b3a8c; color: #fff; border-radius: 2rem;
+    padding: 0.25rem 1rem; font-size: clamp(0.9rem, 3vw, 1.2rem);
+    font-weight: 700; box-shadow: 0 3px 0 #3d2670;
+  }
+
+  /* ───────── progress bar ───────── */
+  .progress-wrap {
+    margin: 0.3rem 0 0.5rem; flex-shrink: 0;
+  }
+  .progress-track {
+    width: 100%; height: 14px; background: #e8dff5;
+    border-radius: 20px; overflow: hidden;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+  }
+  .progress-fill {
+    height: 100%; width: 0%;
+    background: linear-gradient(90deg, #f9c74f, #f8961e);
+    border-radius: 20px; transition: width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .progress-label {
+    text-align: center; font-size: clamp(0.7rem, 2vw, 0.85rem);
+    color: #7a5a9c; font-weight: 600; margin-top: 2px;
+  }
+
+  /* ───────── falling words area ───────── */
+  .sky {
+    flex: 1; position: relative; min-height: 80px;
+    margin: 0.2rem 0;
+    /* falling zone */
+  }
+
+  .word-bubble {
+    position: absolute;
+    left: 50%; transform: translateX(-50%);
+    top: -60px; /* start above view */
+    padding: 0.6rem 1.4rem;
+    border-radius: 60px;
+    background: radial-gradient(circle at 30% 30%, #fff, #ffe0b0);
+    color: #4a2c6a; font-weight: 700;
+    font-size: clamp(1.1rem, 4vw, 1.6rem);
+    box-shadow: 0 6px 20px rgba(90, 60, 140, 0.25), 0 2px 0 #d4a373 inset;
+    border: 2px solid #fff;
+    cursor: grab; z-index: 10;
+    transition: box-shadow 0.15s;
+    white-space: nowrap;
+  }
+  .word-bubble:active { cursor: grabbing; }
+  .word-bubble.dragging {
+    opacity: 0.85; z-index: 100;
+    box-shadow: 0 12px 30px rgba(90, 60, 140, 0.4);
+  }
+
+  /* ───────── baskets ───────── */
+  .baskets {
+    display: flex; gap: 0.5rem; flex-shrink: 0;
+    justify-content: center; padding: 0.3rem 0;
+  }
+  .basket {
+    flex: 1; min-width: 0;
+    background: #fff; border-radius: 24px;
+    padding: 0.5rem 0.3rem 0.6rem;
+    text-align: center;
+    box-shadow: 0 4px 0 rgba(0,0,0,0.08), 0 6px 16px rgba(0,0,0,0.06);
+    border: 3px solid transparent;
+    transition: transform 0.15s, border-color 0.2s, box-shadow 0.2s;
+    cursor: pointer;
+    position: relative;
+  }
+  .basket:active { transform: scale(0.95); }
+  .basket .icon {
+    font-size: clamp(1.4rem, 5vw, 2.2rem);
+    display: block; margin-bottom: 0.1rem;
+  }
+  .basket .label {
+    font-size: clamp(0.85rem, 3vw, 1.15rem);
+    font-weight: 700; color: #3d2670;
+  }
+  .basket .sub {
+    font-size: clamp(0.6rem, 2vw, 0.75rem);
+    color: #8a7aaa; display: block; margin-top: 2px;
+  }
+  /* basket colours */
+  .basket.noun   { border-color: #a8d8ea; background: #e8f6fd; }
+  .basket.verb   { border-color: #b5e6b5; background: #edf9ed; }
+  .basket.particle { border-color: #f7c6c6; background: #fdeaea; }
+  .basket.noun.hover   { border-color: #5bc0eb; background: #cde9fc; box-shadow: 0 0 0 4px rgba(91,192,235,0.3); }
+  .basket.verb.hover   { border-color: #4caf50; background: #c8f0c8; box-shadow: 0 0 0 4px rgba(76,175,80,0.3); }
+  .basket.particle.hover { border-color: #e57373; background: #fad1d1; box-shadow: 0 0 0 4px rgba(229,115,115,0.3); }
+  .basket.wrong-shake {
+    animation: shake 0.4s ease;
+  }
+  .basket.correct-flash {
+    animation: pop 0.45s ease;
+  }
+
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-10px); }
+    40% { transform: translateX(10px); }
+    60% { transform: translateX(-6px); }
+    80% { transform: translateX(6px); }
+  }
+  @keyframes pop {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+  }
+  @keyframes float-up {
+    0% { opacity: 1; transform: translateY(0) scale(1); }
+    100% { opacity: 0; transform: translateY(-80px) scale(1.3); }
+  }
+
+  /* ───────── success floating +✚ ───────── */
+  .float-plus {
+    position: fixed; pointer-events: none; z-index: 200;
+    font-size: 1.8rem; font-weight: 800;
+    animation: float-up 0.9s ease forwards;
+  }
+
+  /* ───────── win splash ───────── */
+  .splash {
+    position: fixed; inset: 0; z-index: 500;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.55);
+    backdrop-filter: blur(6px);
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.5s ease;
+  }
+  .splash.show { opacity: 1; pointer-events: auto; }
+  .splash-card {
+    background: linear-gradient(145deg, #fff7e6, #fff);
+    border-radius: 40px; padding: 2.5rem 2rem;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    transform: scale(0.7); transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    max-width: 90vw;
+  }
+  .splash.show .splash-card { transform: scale(1); }
+  .splash-card h1 {
+    font-size: clamp(2rem, 7vw, 3.5rem);
+    color: #e6a817; text-shadow: 0 4px 0 #b87e0a;
+    margin-bottom: 0.3rem;
+  }
+  .splash-card .trophy { font-size: clamp(3rem, 10vw, 5rem); }
+  .splash-card p {
+    font-size: clamp(1rem, 3.5vw, 1.3rem);
+    color: #5b3a8c; font-weight: 600;
+    margin: 0.5rem 0 1rem;
+  }
+  .btn-restart {
+    background: #5b3a8c; color: #fff; border: none;
+    border-radius: 40px; padding: 0.7rem 2.5rem;
+    font-size: 1.2rem; font-weight: 700; font-family: inherit;
+    cursor: pointer; box-shadow: 0 5px 0 #3d2670;
+    transition: transform 0.1s, box-shadow 0.1s;
+  }
+  .btn-restart:active { transform: translateY(3px); box-shadow: 0 2px 0 #3d2670; }
+
+  /* ───────── confetti canvas ───────── */
+  #confetti-canvas {
+    position: fixed; inset: 0; z-index: 600;
+    pointer-events: none;
+  }
+
+  /* ───────── responsive tweaks ───────── */
+  @media (max-width: 500px) {
+    .game-wrap { padding: 0.25rem 0.3rem 0.4rem; }
+    .baskets { gap: 0.3rem; }
+    .basket { padding: 0.3rem 0.2rem 0.4rem; border-radius: 18px; }
+    .word-bubble { font-size: 1rem; padding: 0.4rem 1rem; }
+  }
+  @media (min-width: 800px) {
+    .baskets { gap: 0.8rem; }
+    .basket { padding: 0.8rem 0.5rem 1rem; border-radius: 30px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="game-wrap" id="app">
+  <header>
+    <span class="title">🎈 أقسام الكلمة</span>
+    <span class="score-box">⭐ <span id="scoreDisplay">0</span></span>
+  </header>
+
+  <div class="progress-wrap">
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-label" id="progressLabel">0 / 15</div>
+  </div>
+
+  <div class="sky" id="sky"></div>
+
+  <div class="baskets" id="baskets">
+    <div class="basket noun" data-type="noun">
+      <span class="icon">📦</span>
+      <span class="label">اسم</span>
+      <span class="sub">Noun</span>
+    </div>
+    <div class="basket verb" data-type="verb">
+      <span class="icon">⚡</span>
+      <span class="label">فعل</span>
+      <span class="sub">Verb</span>
+    </div>
+    <div class="basket particle" data-type="particle">
+      <span class="icon">🔗</span>
+      <span class="label">حرف</span>
+      <span class="sub">Particle</span>
+    </div>
+  </div>
+</div>
+
+<!-- splash screen -->
+<div class="splash" id="splash">
+  <div class="splash-card">
+    <div class="trophy">🏆</div>
+    <h1>مَبْرُوك!</h1>
+    <p>أحسنتَ! لقد أتممتَ اللعبة 🎉</p>
+    <button class="btn-restart" id="restartBtn">🔄 العب مرة أخرى</button>
+  </div>
+</div>
+
+<canvas id="confetti-canvas"></canvas>
+
+<script>
+/* ============================================================
+   📚  WORD DATA  –  Add / edit vocabulary here
+   ============================================================ */
+const WORDS = [
+  // ── nouns (20) ──
+  // proper nouns, common nouns, masculine, feminine, definite, indefinite
+  { text: 'أحمد',    type: 'noun' },
+  { text: 'فاطمة',   type: 'noun' },
+  { text: 'كتاب',    type: 'noun' },
+  { text: 'شجرة',    type: 'noun' },
+  { text: 'الأسد',   type: 'noun' },
+  { text: 'مدرسة',   type: 'noun' },
+  { text: 'طالب',    type: 'noun' },
+  { text: 'قمر',     type: 'noun' },
+  { text: 'سماء',    type: 'noun' },
+  { text: 'نهر',     type: 'noun' },
+  { text: 'جبل',     type: 'noun' },
+  { text: 'بيت',     type: 'noun' },
+  { text: 'سيارة',   type: 'noun' },
+  { text: 'حديقة',   type: 'noun' },
+  { text: 'طائر',    type: 'noun' },
+  { text: 'سمكة',    type: 'noun' },
+  { text: 'طبيب',    type: 'noun' },
+  { text: 'مهندس',   type: 'noun' },
+  { text: 'وردة',    type: 'noun' },
+  { text: 'شمس',     type: 'noun' },
+  { text: 'باب',     type: 'noun' },
+  { text: 'قلم',     type: 'noun' },
+  { text: 'كرسي',    type: 'noun' },
+  { text: 'سرير',    type: 'noun' },
+  { text: 'سوق',     type: 'noun' },
+
+  // ── verbs (22) ──
+  // past, present, imperative; various roots
+  { text: 'كتبَ',    type: 'verb' },
+  { text: 'يقرأ',    type: 'verb' },
+  { text: 'اِسمَعْ', type: 'verb' },
+  { text: 'تلعبُ',   type: 'verb' },
+  { text: 'أكل',     type: 'verb' },
+  { text: 'رسم',     type: 'verb' },
+  { text: 'يركض',    type: 'verb' },
+  { text: 'نام',     type: 'verb' },
+  { text: 'يشرب',    type: 'verb' },
+  { text: 'جلس',     type: 'verb' },
+  { text: 'وقف',     type: 'verb' },
+  { text: 'خرج',     type: 'verb' },
+  { text: 'دخل',     type: 'verb' },
+  { text: 'فتح',     type: 'verb' },
+  { text: 'أغلق',    type: 'verb' },
+  { text: 'سافر',    type: 'verb' },
+  { text: 'لعب',     type: 'verb' },
+  { text: 'غنى',     type: 'verb' },
+  { text: 'بنى',     type: 'verb' },
+  { text: 'ذهب',     type: 'verb' },
+  { text: 'صار',     type: 'verb' },
+  { text: 'قام',     type: 'verb' },
+
+  // ── particles (18) ──
+  // prepositions, conjunctions, interrogatives, conditionals, etc.
+  { text: 'في',      type: 'particle' },
+  { text: 'من',      type: 'particle' },
+  { text: 'على',     type: 'particle' },
+  { text: 'و',       type: 'particle' },
+  { text: 'ثمّ',     type: 'particle' },
+  { text: 'إلى',     type: 'particle' },
+  { text: 'عن',      type: 'particle' },
+  { text: 'هل',      type: 'particle' },
+  { text: 'حتى',     type: 'particle' },
+  { text: 'لولا',    type: 'particle' },
+  { text: 'ليت',     type: 'particle' },
+  { text: 'لعل',     type: 'particle' },
+  { text: 'ما',      type: 'particle' },
+  { text: 'لا',      type: 'particle' },
+  { text: 'إن',      type: 'particle' },
+  { text: 'قد',      type: 'particle' },
+  { text: 'سـ',      type: 'particle' },
+  { text: 'بل',      type: 'particle' },
+];
+
+const WIN_TARGET = 15;    // correct answers needed to win
+/* ============================================================ */
+
+// ─── state ───
+let score = 0;
+let correctCount = 0;
+let currentWord = null;       // { text, type, element }
+let isProcessing = false;
+let isGameOver = false;
+let roundQueue = [];          // shuffled copy
+
+// DOM refs
+const skyEl     = document.getElementById('sky');
+const scoreEl   = document.getElementById('scoreDisplay');
+const fillEl    = document.getElementById('progressFill');
+const labelEl   = document.getElementById('progressLabel');
+const splashEl  = document.getElementById('splash');
+const restartBtn= document.getElementById('restartBtn');
+const baskets   = document.querySelectorAll('.basket');
+const canvas    = document.getElementById('confetti-canvas');
+const ctx       = canvas.getContext('2d');
+
+// ─── audio engine (Web Audio API) ───
+let audioCtx = null;
+
+function initAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+
+function playTone(freq, duration, type = 'sine', gainVal = 0.18) {
+  try {
+    initAudio();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+    gain.gain.setValueAtTime(gainVal, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + duration);
+  } catch (_) { /* silent fallback */ }
+}
+
+function playSuccess() {
+  // cheerful ascending arpeggio
+  playTone(523, 0.12, 'sine', 0.16);  // C5
+  setTimeout(() => playTone(659, 0.12, 'sine', 0.16), 100); // E5
+  setTimeout(() => playTone(784, 0.18, 'sine', 0.18), 200); // G5
+  setTimeout(() => playTone(1047, 0.3, 'sine', 0.14), 320); // C6
+}
+
+function playError() {
+  playTone(280, 0.25, 'triangle', 0.12);
+  setTimeout(() => playTone(220, 0.3, 'triangle', 0.12), 150);
+}
+
+function playWin() {
+  // fanfare
+  const notes = [523, 659, 784, 1047, 784, 1047, 1319];
+  notes.forEach((f, i) => {
+    setTimeout(() => playTone(f, 0.2, 'sine', 0.14), i * 120);
+  });
+}
+
+// ─── confetti ───
+let confettiPieces = [];
+let confettiRunning = false;
+
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+function startConfetti() {
+  confettiPieces = [];
+  const colors = ['#f94144','#f3722c','#f8961e','#f9c74f','#90be6d','#43aa8b','#577590','#b5838d','#e5989b'];
+  for (let i = 0; i < 180; i++) {
+    confettiPieces.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height - canvas.height,
+      w: 6 + Math.random() * 8,
+      h: 4 + Math.random() * 6,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      vx: (Math.random() - 0.5) * 3,
+      vy: 2 + Math.random() * 3,
+      rot: Math.random() * 360,
+      rv: (Math.random() - 0.5) * 8,
+    });
+  }
+  confettiRunning = true;
+  animateConfetti();
+}
+
+function animateConfetti() {
+  if (!confettiRunning) return;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  let offscreen = 0;
+  for (const p of confettiPieces) {
+    p.x += p.vx;
+    p.y += p.vy;
+    p.rot += p.rv;
+    p.vy += 0.04; // gravity
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate(p.rot * Math.PI / 180);
+    ctx.fillStyle = p.color;
+    ctx.fillRect(-p.w/2, -p.h/2, p.w, p.h);
+    ctx.restore();
+    if (p.y > canvas.height + 40) offscreen++;
+  }
+  if (offscreen < confettiPieces.length) {
+    requestAnimationFrame(animateConfetti);
+  } else {
+    confettiRunning = false;
+  }
+}
+
+// ─── helpers ───
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function updateProgress() {
+  const pct = Math.min((correctCount / WIN_TARGET) * 100, 100);
+  fillEl.style.width = pct + '%';
+  labelEl.textContent = `${correctCount} / ${WIN_TARGET}`;
+}
+
+function updateScore() {
+  scoreEl.textContent = score;
+}
+
+// ─── float "+10" ───
+function showFloatPlus(x, y) {
+  const el = document.createElement('div');
+  el.className = 'float-plus';
+  el.textContent = '✦ +10';
+  el.style.color = '#4caf50';
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+  document.body.appendChild(el);
+  el.addEventListener('animationend', () => el.remove());
+}
+
+// ─── spawn next word ───
+function spawnWord() {
+  if (isGameOver || isProcessing) return;
+  if (roundQueue.length === 0) {
+    // win condition may already be triggered; re-check
+    checkWin();
+    return;
+  }
+
+  const data = roundQueue.shift();
+  const el = document.createElement('div');
+  el.className = 'word-bubble';
+  el.textContent = data.text;
+  el.setAttribute('data-type', data.type);
+  skyEl.appendChild(el);
+
+  currentWord = { text: data.text, type: data.type, element: el };
+
+  // position: centre horizontally, top just above
+  const rect = skyEl.getBoundingClientRect();
+  el.style.top = '8px';
+  // ensure it's roughly centred
+  requestAnimationFrame(() => {
+    const w = el.offsetWidth;
+    el.style.left = `calc(50% - ${Math.round(w/2)}px)`;
+    // fall entrance
+    el.style.transition = 'transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s';
+    el.style.transform = 'translateY(0) scale(1)';
+  });
+
+  // attach drag events
+  setupDrag(el);
+
+  // enable basket interaction
+  baskets.forEach(b => b.style.pointerEvents = 'auto');
+}
+
+// ─── drag & drop via mouse / touch ───
+function setupDrag(el) {
+  let startX, startY, origX, origY, offsetX = 0, offsetY = 0;
+  let isDragging = false;
+  let dragClone = null;
+
+  function onStart(clientX, clientY) {
+    if (isProcessing || isGameOver) return;
+    isDragging = false;
+    const r = el.getBoundingClientRect();
+    startX = clientX; startY = clientY;
+    origX = r.left; origY = r.top;
+    offsetX = clientX - r.left;
+    offsetY = clientY - r.top;
+  }
+
+  function onMove(clientX, clientY) {
+    if (!currentWord || currentWord.element !== el) return;
+    const dx = clientX - startX, dy = clientY - startY;
+    if (!isDragging && (Math.abs(dx) > 6 || Math.abs(dy) > 6)) {
+      isDragging = true;
+      el.classList.add('dragging');
+      el.style.position = 'fixed';
+      el.style.left = origX + 'px';
+      el.style.top = origY + 'px';
+      el.style.transform = 'none';
+      el.style.transition = 'none';
+    }
+    if (isDragging) {
+      el.style.left = (clientX - offsetX) + 'px';
+      el.style.top = (clientY - offsetY) + 'px';
+
+      // hover detection on baskets
+      const bp = document.querySelector('.basket.hover');
+      if (bp) bp.classList.remove('hover');
+
+      el.style.pointerEvents = 'none';
+      const below = document.elementFromPoint(clientX, clientY);
+      el.style.pointerEvents = 'auto';
+      if (below && below.classList.contains('basket')) {
+        below.classList.add('hover');
+      }
+    }
+  }
+
+  function onEnd(clientX, clientY) {
+    if (!isDragging) {
+      // treat as click – process via click handler
+      if (!isProcessing && !isGameOver && currentWord && currentWord.element === el) {
+        el.classList.remove('dragging');
+      }
+      return;
+    }
+    el.classList.remove('dragging');
+    el.style.position = 'absolute';
+    el.style.left = ''; el.style.top = '';
+    el.style.transform = 'translateY(0) scale(1)';
+    el.style.transition = 'transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s';
+
+    const bp = document.querySelector('.basket.hover');
+    if (bp) bp.classList.remove('hover');
+
+    // check which basket was hovered
+    el.style.pointerEvents = 'none';
+    const below = document.elementFromPoint(clientX, clientY);
+    el.style.pointerEvents = 'auto';
+    if (below && below.classList.contains('basket')) {
+      handleAnswer(below.dataset.type);
+    }
+    // else word goes back to sky
+    isDragging = false;
+  }
+
+  // mouse
+  el.addEventListener('mousedown', e => {
+    e.preventDefault();
+    onStart(e.clientX, e.clientY);
+    const move = ev => onMove(ev.clientX, ev.clientY);
+    const up = ev => { onEnd(ev.clientX, ev.clientY); window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  });
+
+  // touch
+  el.addEventListener('touchstart', e => {
+    const t = e.touches[0];
+    onStart(t.clientX, t.clientY);
+  }, { passive: true });
+
+  el.addEventListener('touchmove', e => {
+    e.preventDefault();
+    const t = e.touches[0];
+    onMove(t.clientX, t.clientY);
+  }, { passive: false });
+
+  el.addEventListener('touchend', e => {
+    const t = e.changedTouches[0];
+    onEnd(t.clientX, t.clientY);
+  }, { passive: true });
+}
+
+// ─── answer logic ───
+function handleAnswer(type) {
+  if (isProcessing || isGameOver || !currentWord) return;
+  isProcessing = true;
+  const correct = type === currentWord.type;
+
+  if (correct) {
+    playSuccess();
+    score += 10;
+    correctCount++;
+    updateScore();
+    updateProgress();
+
+    // animate bubble up & away
+    const el = currentWord.element;
+    const r = el.getBoundingClientRect();
+    showFloatPlus(r.left + r.width/2 - 20, r.top - 10);
+
+    el.classList.add('dragging');
+    el.style.transition = 'transform 0.4s ease, opacity 0.4s ease';
+    el.style.transform = 'translateY(-60px) scale(1.2)';
+    el.style.opacity = '0';
+
+    // flash basket
+    const basket = document.querySelector(`.basket[data-type="${type}"]`);
+    if (basket) basket.classList.add('correct-flash');
+    setTimeout(() => { if (basket) basket.classList.remove('correct-flash'); }, 500);
+
+    setTimeout(() => {
+      if (el.parentNode) el.remove();
+      currentWord = null;
+      isProcessing = false;
+      checkWin();
+      if (!isGameOver) spawnWord();
+    }, 450);
+  } else {
+    playError();
+    // wrong basket shake
+    const basket = document.querySelector(`.basket[data-type="${type}"]`);
+    if (basket) {
+      basket.classList.add('wrong-shake');
+      setTimeout(() => basket.classList.remove('wrong-shake'), 450);
+    }
+    // gentle shake on word bubble too
+    const el = currentWord.element;
+    el.style.transition = 'transform 0.2s ease';
+    el.style.transform = 'translateX(12px)';
+    setTimeout(() => { el.style.transform = 'translateX(-12px)'; }, 100);
+    setTimeout(() => { el.style.transform = 'translateX(6px)'; }, 200);
+    setTimeout(() => { el.style.transform = 'translateX(0)'; }, 300);
+    setTimeout(() => {
+      isProcessing = false;
+    }, 400);
+  }
+}
+
+// ─── click handlers on baskets ───
+baskets.forEach(b => {
+  b.addEventListener('click', () => handleAnswer(b.dataset.type));
+});
+
+// ─── win check ───
+function checkWin() {
+  if (correctCount >= WIN_TARGET && !isGameOver) {
+    isGameOver = true;
+    if (currentWord && currentWord.element && currentWord.element.parentNode) {
+      currentWord.element.remove();
+    }
+    currentWord = null;
+    baskets.forEach(b => b.style.pointerEvents = 'none');
+    playWin();
+    setTimeout(() => {
+      splashEl.classList.add('show');
+      startConfetti();
+    }, 300);
+    return true;
+  }
+  return false;
+}
+
+// ─── restart ───
+function resetGame() {
+  // clean up
+  isGameOver = false;
+  isProcessing = false;
+  score = 0;
+  correctCount = 0;
+  currentWord = null;
+  roundQueue = [];
+  confettiRunning = false;
+
+  skyEl.innerHTML = '';
+  splashEl.classList.remove('show');
+  baskets.forEach(b => { b.style.pointerEvents = 'auto'; b.classList.remove('hover', 'wrong-shake', 'correct-flash'); });
+
+  updateScore();
+  updateProgress();
+
+  // rebuild a balanced queue: cycle through categories evenly
+  const byType = { noun: [], verb: [], particle: [] };
+  WORDS.forEach(w => byType[w.type].push(w));
+  Object.values(byType).forEach(arr => shuffle(arr));
+  roundQueue = [];
+  // interleave so we get a fair mix — pick one from each category in rotation
+  let anyLeft = true;
+  while (anyLeft) {
+    anyLeft = false;
+    for (const type of ['noun', 'verb', 'particle']) {
+      if (byType[type].length) {
+        roundQueue.push(byType[type].pop());
+        anyLeft = true;
+      }
+    }
+  }
+  // final shuffle of the interleaved pairs so order still feels random
+  shuffle(roundQueue);
+
+  // short delay then spawn
+  setTimeout(spawnWord, 300);
+}
+
+restartBtn.addEventListener('click', resetGame);
+
+// ─── init ───
+resetGame();
+
+// ─── resize handler for word positioning ───
+window.addEventListener('resize', () => {
+  if (currentWord && currentWord.element && currentWord.element.parentNode) {
+    const el = currentWord.element;
+    const w = el.offsetWidth;
+    el.style.left = `calc(50% - ${Math.round(w/2)}px)`;
+  }
+});
+
+// ─── keyboard fallback: 1=Noun 2=Verb 3=Particle ───
+document.addEventListener('keydown', e => {
+  if (e.key === '1') { const b = document.querySelector('.basket.noun'); if (b) b.click(); }
+  if (e.key === '2') { const b = document.querySelector('.basket.verb'); if (b) b.click(); }
+  if (e.key === '3') { const b = document.querySelector('.basket.particle'); if (b) b.click(); }
+});
+</script>
+</body>
+</html>
